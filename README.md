@@ -42,6 +42,9 @@ source env/bin/activate
 pip install -r requirements.txt
 ```
 
+### NB!
+There's a `abstract_categorizer_model.zip` file that I'll send via email. Please, make sure you unzip it in the storage directory.
+
 ## Instructions
 
 
