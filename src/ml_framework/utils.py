@@ -1,4 +1,5 @@
 import os
+from typing import Any, Dict, Tuple
 
 import evaluate
 import numpy as np
@@ -9,7 +10,7 @@ ID_2_LABEL = {0: "ph", 1: "math", 2: "cs", 3: "bio", 4: "soc", 5: "chem"}
 LABEL_2_ID = {v: k for k, v in ID_2_LABEL.items()}
 
 
-def compute_metrics(eval_pred):
+def compute_metrics(eval_pred: Tuple[Any, Any]) -> Dict[str, float]:
     metric_1 = evaluate.load("accuracy")
     metric_2 = evaluate.load("precision")
     metric_3 = evaluate.load("recall")

@@ -1,14 +1,19 @@
 import json
+import logging
 import os
 import pickle
 import random
 import string
+from typing import Any, Callable, Dict, List
 
 import nltk
 import tqdm
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
+from utils import LABEL_2_ID, STORAGE_PATH
+
+LOGGER = logging.getLogger(__name__)
 
 # Download only if not already present
 nltk.download("stopwords", quiet=True)
@@ -21,12 +26,7 @@ STOR_WORDS = set(stopwords.words("english"))
 MIN_ABSTRACT_WORDS = 50
 MAX_ABSTRACT_WORDS = 250
 
-ID_2_LABEL = {0: "ph", 1: "math", 2: "cs", 3: "bio", 4: "soc", 5: "chem"}
-LABEL_2_ID = {v: k for k, v in ID_2_LABEL.items()}
-
-ORIGINAL_DATA_PATH = os.path.join(
-    "..", "..", "storage", "arxiv-metadata-oai-snapshot.json"
-)
+ORIGINAL_DATA_PATH = os.path.join(STORAGE_PATH, "arxiv-metadata-oai-snapshot.json")
 
 CATEGORY_MAPPING = {
     "math": "math",
@@ -70,13 +70,13 @@ CATEGORY_MAPPING = {
 }
 
 
-def _load_data_dynamically():
+def _load_data_dynamically() -> Callable[...]:
     with open(ORIGINAL_DATA_PATH, "r") as input_file:
         for line in input_file:
             yield json.loads(line)
 
 
-def _filter_data(data):
+def _filter_data(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     data = [
         entry
         for entry in data
@@ -97,7 +97,7 @@ def _filter_data(data):
     ]
 
 
-def _text_preprocessing(text):
+def _text_preprocessing(text: str) -> str:
     text = text.strip().lower()
 
     text = text.translate(str.maketrans("", "", string.punctuation))
@@ -110,7 +110,7 @@ def _text_preprocessing(text):
     return " ".join(tokens)
 
 
-def _clean_text_data(data):
+def _clean_text_data(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return [
         {
             "text": _text_preprocessing(entry["text"]),
@@ -120,16 +120,15 @@ def _clean_text_data(data):
     ]
 
 
-def preprocess():
-    print("Loading data...")
+def preprocess() -> None:
+    LOGGER.info("Loading data...")
     data = list(_load_data_dynamically())
 
     # Limiting data to 4_000 examples
     data = data[:4_000]
 
-    print("Filtering data...")
+    LOGGER.info("Filtering data...")
     data = _filter_data(data)
-
     data = _clean_text_data(data)
 
     random.seed(42)

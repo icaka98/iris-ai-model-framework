@@ -1,26 +1,21 @@
-import os
-import pickle
+import logging
+from typing import Any
 
-from datasets import Dataset
+from data_loader import load_data
 from ray.tune.schedulers import ASHAScheduler
 from ray.tune.search.hyperopt import HyperOptSearch
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
-    DataCollatorWithPadding,
     Trainer,
     TrainingArguments,
 )
-from utils import ID_2_LABEL, LABEL_2_ID, STORAGE_PATH, compute_metrics
+from utils import ID_2_LABEL, LABEL_2_ID, compute_metrics
 
-TOKENIZER = AutoTokenizer.from_pretrained("distilbert-base-uncased")
-
-
-def _preprocess_function(examples):
-    return TOKENIZER(examples["text"], truncation=True)
+LOGGER = logging.getLogger(__name__)
 
 
-def model_init():
+def model_init() -> Any:
     model = AutoModelForSequenceClassification.from_pretrained(
         "distilbert-base-uncased",
         num_labels=len(ID_2_LABEL),
@@ -31,34 +26,30 @@ def model_init():
     return model
 
 
-def hypertune():
-    with open(os.path.join(STORAGE_PATH, "training_data.dat"), "rb") as data_file:
-        training_data = pickle.load(data_file)
+def hypertune() -> None:
+    # Load data and config
+    training_dataset, test_dataset = load_data()
+    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
+    training_args = TrainingArguments(
+        "test", evaluation_strategy="steps", eval_steps=5, disable_tqdm=False
+    )
 
-    with open(os.path.join(STORAGE_PATH, "test_data.dat"), "rb") as data_file:
-        test_data = pickle.load(data_file)
-
-    training_dataset = Dataset.from_list(training_data)
-    test_dataset = Dataset.from_list(test_data)
+    # Tokenize data
+    def _preprocess_function(examples):
+        return tokenizer(examples["text"], truncation=True)
 
     tokenized_training_dataset = training_dataset.map(
         _preprocess_function, batched=True
     )
     tokenized_test_dataset = test_dataset.map(_preprocess_function, batched=True)
 
-    data_collator = DataCollatorWithPadding(tokenizer=TOKENIZER)
-
-    training_args = TrainingArguments(
-        "test", evaluation_strategy="steps", eval_steps=5, disable_tqdm=False
-    )
-
+    # Hyperparameter search
     trainer = Trainer(
         model_init=model_init,
         args=training_args,
         train_dataset=tokenized_training_dataset,
         eval_dataset=tokenized_test_dataset,
-        tokenizer=TOKENIZER,
-        data_collator=data_collator,
+        tokenizer=tokenizer,
         compute_metrics=compute_metrics,
     )
 
@@ -69,8 +60,7 @@ def hypertune():
         scheduler=ASHAScheduler(metric="objective", mode="max"),
     )
 
-    print("Optimal hyperparameters:")
-    print(best_trial.hyperparameters)
+    LOGGER.info(f"Optimal hyperparameters: {best_trial.hyperparameters}")
 
 
 if __name__ == "__main__":
