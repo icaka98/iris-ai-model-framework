@@ -1,4 +1,5 @@
 import os
+from typing import Any, Dict
 
 from django.http import HttpResponse
 from django.template import loader
@@ -7,7 +8,7 @@ from transformers import pipeline
 STORAGE_PATH = os.path.join("..", "..", "storage")
 
 
-def inference(text):
+def inference(text: str) -> Dict[str, Any]:
     classifier = pipeline(
         "text-classification",
         model=os.path.join(
@@ -25,7 +26,6 @@ def index(request):
         return HttpResponse(template.render({}, request))
 
     abstract_text_input = request.POST.get("abstract_text", "")
-
     inference_result = inference(abstract_text_input)[0]
     context = {
         "category": inference_result["label"],
